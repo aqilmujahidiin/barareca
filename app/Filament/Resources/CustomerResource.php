@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Imports\CustomerImporter;
 use App\Filament\Resources\CustomerResource\Pages;
 use App\Models\Customer;
 use Filament\Forms;
@@ -11,10 +10,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
-use Filament\Tables\Actions\ImportAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 
 class CustomerResource extends Resource
 {
@@ -117,7 +114,7 @@ class CustomerResource extends Resource
             ->columns([
                 TextColumn::make('No')
                     ->rowIndex(),
-                TextColumn::make('tanggal'),
+                TextColumn::make('tanggal')->date('d F Y'),
                 TextColumn::make('no_invoice'),
                 TextColumn::make('nama_pelanggan'),
                 TextColumn::make('status_customer'),
