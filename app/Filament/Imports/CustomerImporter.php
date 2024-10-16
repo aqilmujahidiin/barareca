@@ -19,11 +19,8 @@ class CustomerImporter extends Importer
                 ->requiredMapping()
                 ->rules(['required', 'date'])
                 ->castStateUsing(function ($state) {
-                    if (empty($state)) {
-                        return null;
-                    }
-
-                    return self::FormatTanggal($state);
+                    $state = Carbon::parse($state)->format('Y-m-d');
+                    return $state;
                 }),
 
             ImportColumn::make('no_telepon')
@@ -32,7 +29,7 @@ class CustomerImporter extends Importer
             ImportColumn::make('nama_pelanggan')
                 ->rules(['nullable', 'max:255']),
 
-            ImportColumn::make('nama_produk')
+            ImportColumn::make('product_id')
                 ->requiredMapping()
                 ->rules(['required', 'max:255']),
 
@@ -58,18 +55,11 @@ class CustomerImporter extends Importer
 
             ImportColumn::make('kode_pos_pengirim')
                 ->rules(['nullable', 'max:255']),
-
-            ImportColumn::make('cash_on_delivery')
-                ->numeric()
-                ->rules(['nullable', 'numeric', 'min:0', 'max:99999999.99'])
-                ->castStateUsing(function ($state) {
-                    if (blank($state))
-                        return 0;
-                    $state = preg_replace('/[^0-9.]/', '', $state);
-                    return round(floatval($state), 2);
-                }),
-
-            ImportColumn::make('transfer')
+            ImportColumn::make('metode_pembayaran')
+                ->rules(['required', 'string', 'in:cod,transfer'])
+                ->requiredMapping()
+                ->example('cod atau transfer'),
+            ImportColumn::make('total_pembayaran')
                 ->numeric()
                 ->rules(['nullable', 'numeric', 'min:0', 'max:99999999.99'])
                 ->castStateUsing(function ($state) {
@@ -83,15 +73,15 @@ class CustomerImporter extends Importer
                 ->requiredMapping()
                 ->rules(['nullable', 'max:400']),
 
-            ImportColumn::make('customer_service')
+            ImportColumn::make('customer_service_id')
                 ->requiredMapping()
                 ->rules(['required', 'max:255']),
 
-            ImportColumn::make('advertiser')
+            ImportColumn::make('advertiser_id')
                 ->requiredMapping()
                 ->rules(['required', 'max:255']),
 
-            ImportColumn::make('inp')
+            ImportColumn::make('operator_id')
                 ->rules(['nullable', 'max:255']),
 
             ImportColumn::make('ongkos_kirim')
@@ -145,7 +135,7 @@ class CustomerImporter extends Importer
                     return round(floatval($state), 2);
                 }),
 
-            ImportColumn::make('status_customer')
+            ImportColumn::make('status_customer_id')
                 ->requiredMapping()
                 ->rules(['nullable', 'max:255']),
 
@@ -161,42 +151,14 @@ class CustomerImporter extends Importer
             ImportColumn::make('keterangan_promo')
                 ->rules(['nullable', 'max:255']),
 
-            ImportColumn::make('company')
+            ImportColumn::make('company_id')
                 ->requiredMapping()
                 ->rules(['required', 'max:255']),
 
-            ImportColumn::make('divisi')
+            ImportColumn::make('divisi_id')
                 ->requiredMapping()
                 ->rules(['required', 'max:255']),
         ];
-    }
-
-    // Tambahkan metode ini ke dalam class Anda
-    public static function FormatTanggal($value)
-    {
-        if (empty($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-
-        try {
-            // Coba format "21 August 2024"
-            if (preg_match('/^\d{1,2}\s+[A-Za-z]+\s+\d{4}$/', $value)) {
-                return Carbon::createFromFormat('d F Y', $value)->format('Y-m-d');
-            }
-
-            // Coba format "2024-10-13"
-            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
-                return Carbon::createFromFormat('Y-m-d', $value)->format('Y-m-d');
-            }
-
-            // Jika tidak cocok dengan format di atas, gunakan Carbon::parse
-            return Carbon::parse($value)->format('Y-m-d');
-        } catch (\Exception $e) {
-            \Log::warning("Gagal parsing tanggal: $value", ['exception' => $e->getMessage()]);
-            return null;
-        }
     }
     public function resolveRecord(): ?Customer
     {

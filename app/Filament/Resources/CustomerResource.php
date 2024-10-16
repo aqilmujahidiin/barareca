@@ -2,22 +2,30 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\CustomerResource\Pages;
-use App\Models\Customer;
+use Carbon\Carbon;
 use Filament\Forms;
-use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
-use Filament\Tables\Columns\TextColumn;
+use App\Models\Customer;
+use Filament\Forms\Form;
 use Filament\Tables\Table;
+use Filament\Support\RawJs;
+use Filament\Resources\Resource;
+use Filament\Forms\Components\Select;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\DatePicker;
+use App\Filament\Resources\CustomerResource\Pages;
+use Malzariey\FilamentDaterangepickerFilter\Filters\DateRangeFilter;
 
 class CustomerResource extends Resource
 {
     protected static ?string $model = Customer::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
 
     public static function form(Form $form): Form
     {
@@ -38,10 +46,33 @@ class CustomerResource extends Resource
                                 TextInput::make('alamat_penerima'),
                                 TextInput::make('alamat_penerima_2'),
                                 TextInput::make('kode_pos'),
-                                TextInput::make('inp')
-                                    ->label(strtoupper('inp')),
+                                Select::make('operator_id')
+                                    ->relationship('operator', 'name')
+                                    ->required()
+                                    ->preload()
+                                    ->searchable()
+                                    ->createOptionForm([
+                                        TextInput::make('name')
+                                            ->required(),
+                                        TextInput::make('email')
+                                            ->email(),
+                                    ]),
+
                                 TextInput::make('status_granular'),
-                                TextInput::make('status_customer'),
+                                Select::make('status_customer_id')
+                                    ->label('Status Customer')
+                                    ->relationship('statuscustomer', 'name')
+                                    ->required()
+                                    ->preload()
+                                    ->searchable()
+                                    ->createOptionForm([
+                                        Forms\Components\TextInput::make('name')
+                                            ->required()
+                                            ->maxLength(255),
+                                        Forms\Components\TextInput::make('description')
+                                            ->required()
+                                            ->maxLength(255),
+                                    ]),
                             ])->columns(2),
                         // tab 2
                         Forms\Components\Tabs\Tab::make('Alamat Customer')
@@ -53,9 +84,13 @@ class CustomerResource extends Resource
                         // tab 3
                         Forms\Components\Tabs\Tab::make('Produk')
                             ->schema([
-                                TextInput::make('nama_produk')
-                                    ->required(),
+                                Select::make('product_id')
+                                    ->relationship('product', 'name')
+                                    ->searchable()
+                                    ->required()
+                                    ->preload(),
                                 TextInput::make('quantity')
+                                    ->numeric()
                                     ->required(),
                                 TextInput::make('keterangan_promo'),
                                 TextInput::make('id_pelacakan'),
@@ -63,26 +98,68 @@ class CustomerResource extends Resource
                         // tab 4
                         Forms\Components\Tabs\Tab::make('Lain-lain')
                             ->schema([
-                                TextInput::make('customer_service')
-                                    ->required(),
-                                TextInput::make('advertiser')
-                                    ->required(),
-                                TextInput::make('divisi')
-                                    ->required(),
-                                TextInput::make('company')
-                                    ->required(),
+                                Select::make('customer_service_id')
+                                    ->relationship('CustomerService', 'name')
+                                    ->required()
+                                    ->preload()
+                                    ->searchable()
+                                    ->createOptionForm([
+                                        Forms\Components\TextInput::make('name')
+                                            ->required()
+                                            ->maxLength(255),
+                                        Forms\Components\TextInput::make('description')
+                                            ->required()
+                                            ->maxLength(255),
+                                    ]),
+
+                                Select::make('advertiser_id')
+                                    ->relationship('advertiser', 'name')
+                                    ->required()
+                                    ->preload()
+                                    ->searchable()
+                                    ->createOptionForm([
+                                        TextInput::make('name')
+                                            ->required(),
+                                        TextInput::make('email')
+                                            ->required()
+                                            ->email(),
+                                    ]),
+
+                                Select::make('divisi_id')
+                                    ->relationship('divisi', 'name')
+                                    ->required()
+                                    ->preload()
+                                    ->searchable(),
+                                Select::make('company_id')
+                                    ->relationship('company', 'name')
+                                    ->required()
+                                    ->preload()
+                                    ->searchable(),
                             ])->columns(2),
+
                         // tab 5
                         Forms\Components\Tabs\Tab::make('Pembayaran')
                             ->schema([
-                                TextInput::make('no_invoice'),
-                                TextInput::make('cash_on_delivery')
-                                    ->currencyMask(thousandSeparator: ',', decimalSeparator: '.', precision: 2),
-                                TextInput::make('transfer')
-                                    ->currencyMask(thousandSeparator: ',', decimalSeparator: '.', precision: 2),
+                                TextInput::make('no_invoice')
+                                    ->unique(),
+                                Select::make('metode_pembayaran')
+                                    ->options([
+                                        'transfer' => 'Transfer',
+                                        'cod' => 'Cash on Delivery',
+                                    ])
+                                    ->required(),
+                                TextInput::make('total_pembayaran')
+                                    ->mask(RawJs::make('$money($input)'))
+                                    ->stripCharacters(',')
+                                    ->numeric()
+                                    ->required(),
                                 TextInput::make('ongkos_kirim')
+                                    ->mask(RawJs::make('$money($input)'))
+                                    ->stripCharacters(',')
                                     ->numeric(),
                                 TextInput::make('potongan_ongkos_kirim')
+                                    ->mask(RawJs::make('$money($input)'))
+                                    ->stripCharacters(',')
                                     ->numeric(),
                             ])->columns(2),
                         Forms\Components\Tabs\Tab::make('Pengirim')
@@ -91,16 +168,24 @@ class CustomerResource extends Resource
                                 TextInput::make('alamat_pengirim'),
                                 TextInput::make('kontak_pengirim'),
                                 TextInput::make('ongkos_kirim')
+                                    ->mask(RawJs::make('$money($input)'))
+                                    ->stripCharacters(',')
                                     ->numeric(),
                                 TextInput::make('kode_pos_pengirim'),
                             ])->columns(2),
                         Forms\Components\Tabs\Tab::make('Potongan lain-lain')
                             ->schema([
                                 TextInput::make('potongan_lain_1')
+                                    ->mask(RawJs::make('$money($input)'))
+                                    ->stripCharacters(',')
                                     ->numeric(),
                                 TextInput::make('potongan_lain_2')
+                                    ->mask(RawJs::make('$money($input)'))
+                                    ->stripCharacters(',')
                                     ->numeric(),
                                 TextInput::make('potongan_lain_3')
+                                    ->mask(RawJs::make('$money($input)'))
+                                    ->stripCharacters(',')
                                     ->numeric(),
 
                             ])->columns(2),
@@ -116,24 +201,30 @@ class CustomerResource extends Resource
                     ->rowIndex(),
                 TextColumn::make('tanggal')->date('d F Y'),
                 TextColumn::make('no_invoice'),
+                TextColumn::make('operator.name')
+                    ->sortable()
+                    ->searchable(),
                 TextColumn::make('nama_pelanggan'),
-                TextColumn::make('status_customer'),
-                TextColumn::make('nama_produk'),
+
+                TextColumn::make('statusCustomer.name')
+                    ->sortable()
+                    ->searchable(),
                 TextColumn::make('quantity'),
-                TextColumn::make('transfer')
-                    ->label('Transfer')
+                TextColumn::make('metode_pembayaran'),
+                TextColumn::make('total_pembayaran')
+                    ->label('Total Pembayaran')
                     ->formatStateUsing(fn(string $state): string => 'Rp ' . number_format((float) $state, 0, ',', '.'))
                     ->sortable()
                     ->toggleable(),
-                TextColumn::make('cash_on_delivery')
-                    ->label('COD')
-                    ->formatStateUsing(fn(string $state): string => 'Rp ' . number_format((float) $state, 0, ',', '.'))
+                TextColumn::make('customerService.name')
                     ->sortable()
-                    ->toggleable(),
-                TextColumn::make('customer_service'),
+                    ->searchable(),
                 TextColumn::make('divisi'),
                 TextColumn::make('advertiser'),
-                TextColumn::make('company'),
+                TextColumn::make('company.name')
+                    ->label('Company')
+                    ->sortable()
+                    ->searchable(),
                 TextColumn::make('ongkos_kirim')
                     ->formatStateUsing(fn(string $state): string => 'Rp ' . number_format((float) $state, 0, ',', '.')),
                 TextColumn::make('potongan_ongkos_kirim')
@@ -148,7 +239,9 @@ class CustomerResource extends Resource
             ])
 
             ->filters([
-                //
+                DateRangeFilter::make('tanggal')
+                    ->startDate(Carbon::now()->subDays(6)->startOfDay())
+                    ->endDate(Carbon::now()->endOfDay())
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -177,6 +270,6 @@ class CustomerResource extends Resource
     }
     public static function getGloballySearchableAttributes(): array
     {
-        return ['nama_pelanggan', 'no_telepon', 'nama_produk', 'no_invoice'];
+        return ['nama_pelanggan', 'no_telepon', 'no_invoice'];
     }
 }
