@@ -27,7 +27,7 @@ return new class extends Migration {
             $table->text('alamat_penerima')->nullable();
             $table->text('alamat_penerima_2')->nullable();
             $table->string('kode_pos')->nullable();
-            $table->string('no_invoice')->unique()->nullable();
+            $table->string('no_invoice')->nullable();
             $table->string('keterangan_promo')->nullable();
             $table->decimal('ongkos_kirim', 10, 2)->nullable()->default(0);
             $table->decimal('potongan_ongkos_kirim', 10, 2)->nullable()->default(0);

@@ -62,15 +62,15 @@ class CustomerResource extends Resource
                                 Select::make('status_customer_id')
                                     ->label('Status Customer')
                                     ->relationship('statuscustomer', 'name')
-                                    ->required()
+                                    ->nullable()
                                     ->preload()
                                     ->searchable()
                                     ->createOptionForm([
                                         Forms\Components\TextInput::make('name')
-                                            ->required()
+                                            ->nullable()
                                             ->maxLength(255),
                                         Forms\Components\TextInput::make('description')
-                                            ->required()
+                                            ->nullable()
                                             ->maxLength(255),
                                     ]),
                             ])->columns(2),
@@ -140,8 +140,7 @@ class CustomerResource extends Resource
                         // tab 5
                         Forms\Components\Tabs\Tab::make('Pembayaran')
                             ->schema([
-                                TextInput::make('no_invoice')
-                                    ->unique(),
+                                TextInput::make('no_invoice'),
                                 Select::make('metode_pembayaran')
                                     ->options([
                                         'transfer' => 'Transfer',
@@ -199,18 +198,25 @@ class CustomerResource extends Resource
             ->columns([
                 TextColumn::make('No')
                     ->rowIndex(),
-                TextColumn::make('tanggal')->date('d F Y'),
+                TextColumn::make('tanggal')->date('d F Y')
+                    ->sortable()
+                    ->searchable(),
                 TextColumn::make('no_invoice'),
                 TextColumn::make('operator.name')
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('nama_pelanggan'),
-
+                TextColumn::make('product.name')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('statusCustomer.name')
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('quantity'),
-                TextColumn::make('metode_pembayaran'),
+                TextColumn::make('metode_pembayaran')
+                    ->sortable()
+                    ->searchable(),
                 TextColumn::make('total_pembayaran')
                     ->label('Total Pembayaran')
                     ->formatStateUsing(fn(string $state): string => 'Rp ' . number_format((float) $state, 0, ',', '.'))
@@ -219,8 +225,12 @@ class CustomerResource extends Resource
                 TextColumn::make('customerService.name')
                     ->sortable()
                     ->searchable(),
-                TextColumn::make('divisi'),
-                TextColumn::make('advertiser'),
+                TextColumn::make('divisi.name')
+                    ->sortable()
+                    ->searchable(),
+                TextColumn::make('advertiser.name')
+                    ->sortable()
+                    ->searchable(),
                 TextColumn::make('company.name')
                     ->label('Company')
                     ->sortable()
@@ -240,8 +250,7 @@ class CustomerResource extends Resource
 
             ->filters([
                 DateRangeFilter::make('tanggal')
-                    ->startDate(Carbon::now()->subDays(6)->startOfDay())
-                    ->endDate(Carbon::now()->endOfDay())
+
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

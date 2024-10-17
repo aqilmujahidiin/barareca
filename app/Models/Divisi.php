@@ -23,10 +23,10 @@ class Divisi extends Model
     {
         return $this->hasMany(CustomerService::class);
     }
-
-    // Jika Anda ingin melihat semua Customer yang terkait dengan Divisi ini
     public function customers()
     {
-        return $this->hasManyThrough(Customer::class, Company::class);
+        return $this->hasMany(Customer::class);
     }
+    // Jika Anda ingin melihat semua Customer yang terkait dengan Divisi ini
+
 }

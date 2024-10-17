@@ -11,10 +11,10 @@ return new class extends Migration {
             $table->foreignId('customer_service_id')->constrained();
             $table->foreignId('advertiser_id')->constrained();
             $table->foreignId('operator_id')->constrained();
-            $table->foreignId('status_customer_id')->constrained('status_customers');
             $table->foreignId('company_id')->constrained();
             $table->foreignId('divisi_id')->constrained();
             $table->foreignId('product_id')->nullable()->constrained()->onDelete('set null');
+            $table->foreignId('status_customer_id')->nullable()->constrained()->onDelete('set null');
         });
     }
 

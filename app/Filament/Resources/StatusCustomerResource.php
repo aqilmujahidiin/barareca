@@ -24,10 +24,10 @@ class StatusCustomerResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
-                    ->required()
+                    ->nullable()
                     ->maxLength(255),
                 Forms\Components\TextInput::make('description')
-                    ->required()
+                    ->nullable()
                     ->maxLength(255),
             ]);
     }
