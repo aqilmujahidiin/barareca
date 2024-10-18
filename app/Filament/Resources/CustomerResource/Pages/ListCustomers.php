@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CustomerResource\Pages;
 
+use Filament\Actions;
 use Filament\Actions\Action;
 use App\Imports\CustomersImport;
 use Maatwebsite\Excel\Facades\Excel;
@@ -20,7 +21,7 @@ class ListCustomers extends ListRecords
         return [
             Action::make('import')
                 ->label('Import Customers')
-                ->icon('heroicon-o-plus')
+                ->icon('heroicon-o-arrow-up-tray')
                 ->action(function (array $data) {
                     $file = $data['file'];
 
@@ -72,6 +73,9 @@ class ListCustomers extends ListRecords
                         ->acceptedFileTypes(['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'])
                         ->required(),
                 ]),
+            Actions\CreateAction::make()
+                ->icon('heroicon-o-user-plus'),
         ];
+
     }
 }

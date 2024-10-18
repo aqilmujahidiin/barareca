@@ -19,6 +19,7 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
+    protected static ?string $navigationGroup = "User Management";
     protected static ?string $navigationIcon = 'heroicon-o-users';
     public static function form(Form $form): Form
     {
@@ -36,6 +37,11 @@ class UserResource extends Resource
                     ->password()
                     ->required()
                     ->maxLength(255),
+                Forms\Components\Select::make('roles')
+                    ->relationship('roles', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->searchable(),
             ]);
     }
 
@@ -47,6 +53,7 @@ class UserResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('roles.name'),
                 Tables\Columns\TextColumn::make('email_verified_at')
                     ->dateTime()
                     ->sortable(),
@@ -61,10 +68,6 @@ class UserResource extends Resource
             ])
             ->filters([
                 //
-            ])
-            ->headerActions([
-                ImportAction::make()
-                    ->importer(UserImporter::class)
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
