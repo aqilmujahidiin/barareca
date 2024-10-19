@@ -8,14 +8,14 @@
 
 // class LatestCustomer extends BaseWidget
 // {
-//     public function table(Table $table): Table
-//     {
-//         return $table
-//             ->query(
-//                 // ...
-//             )
-//             ->columns([
-//                 // ...
-//             ]);
-//     }
+//     // public function table(Table $table): Table
+//     // {
+//     //     return $table
+//     //         ->query(
+//     //             // ...
+//     //         )
+//     //         ->columns([
+//     //             // ...
+//     //         ]);
+//     // }
 // }

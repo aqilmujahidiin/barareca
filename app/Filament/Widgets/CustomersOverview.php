@@ -2,38 +2,30 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Customer;
 use Akaunting\Money\Money;
-use Filament\Widgets\StatsOverviewWidget\Stat;
-use BezhanSalleh\FilamentShield\Traits\HasWidgetShield;
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use App\Models\Customer;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
-use Filament\Pages\Dashboard\Concerns\InteractsWithFiltersForm;
+use Filament\Widgets\StatsOverviewWidget\Stat;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use Illuminate\Database\Eloquent\Builder;
 
 class CustomersOverview extends BaseWidget
 {
-    use InteractsWithPageFilters, HasWidgetShield;
+    use InteractsWithPageFilters;
 
     protected static bool $isLazy = false;
     protected static ?int $sort = -2;
 
     protected function getStats(): array
     {
-
+        $division = $this->filters['divisis'] ?? null;
+        $startDate = $this->filters['startDate'] ?? null;
+        $endDate = $this->filters['endDate'] ?? null;
 
         $query = Customer::query()
-            ->when(
-                $filters['division'] ?? null,
-                fn($query, $divisionId) => $query->where('division_id', $divisionId)
-            )
-            ->when(
-                $filters['startDate'] ?? null,
-                fn($query, $date) => $query->whereDate('tanggal', '>=', $date)
-            )
-            ->when(
-                $filters['endDate'] ?? null,
-                fn($query, $date) => $query->whereDate('tanggal', '<=', $date)
-            );
+            ->when($division, fn(Builder $query) => $query->where('divisi_id', $division))
+            ->when($startDate, fn(Builder $query) => $query->whereDate('tanggal', '>=', $startDate))
+            ->when($endDate, fn(Builder $query) => $query->whereDate('tanggal', '<=', $endDate));
 
         return [
             Stat::make(
