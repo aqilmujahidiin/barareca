@@ -56,6 +56,6 @@ class GroupProduct extends TableWidget
                     ->money('IDR')
                     ->sortable(),
             ])
-            ->defaultSort('total_omset', 'asc');
+            ->defaultSort('total_omset', 'desc');
     }
 }

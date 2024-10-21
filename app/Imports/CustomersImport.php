@@ -1,24 +1,25 @@
 <?php
 namespace App\Imports;
 
-use App\Models\Advertiser;
-use App\Models\Company;
-use App\Models\Customer;
-use App\Models\CustomerService;
-use App\Models\Divisi;
-use App\Models\Operator;
-use App\Models\Product;
-use App\Models\StatusCustomer;
 use Carbon\Carbon;
-use Illuminate\Support\Collection;
+use App\Models\Divisi;
+use App\Models\Company;
+use App\Models\Product;
+use App\Models\Customer;
+use App\Models\Operator;
+use App\Models\Advertiser;
+use App\Models\StatusCustomer;
+use App\Models\CustomerService;
 use Illuminate\Validation\Rule;
-use Maatwebsite\Excel\Concerns\Importable;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToModel;
+use Maatwebsite\Excel\Concerns\Importable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
 
-class CustomersImport implements ToModel, WithChunkReading, WithHeadingRow, WithBatchInserts
+class CustomersImport implements ToModel, WithChunkReading, WithHeadingRow, ShouldQueue
 {
     use Importable;
 
@@ -117,8 +118,8 @@ class CustomersImport implements ToModel, WithChunkReading, WithHeadingRow, With
     {
         return 500;
     }
-    public function batchSize(): int
-    {
-        return 100;
-    }
+    // public function batchSize(): int
+    // {
+    //     return 100;
+    // }
 }

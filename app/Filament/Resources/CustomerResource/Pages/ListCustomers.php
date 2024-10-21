@@ -5,6 +5,7 @@ namespace App\Filament\Resources\CustomerResource\Pages;
 use Filament\Actions;
 use Filament\Actions\Action;
 use App\Imports\CustomersImport;
+use App\Jobs\ImportCustomersJob;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Storage;
 use Filament\Notifications\Notification;
@@ -46,7 +47,8 @@ class ListCustomers extends ListRecords
                     try {
                         $import = new CustomersImport();
                         Excel::import($import, $fullPath);
-
+                        // ImportCustomersJob::dispatch($fullPath, auth()->id());
+        
                         Notification::make()
                             ->title('Import berhasil')
                             // ->body("Jumlah data diimpor: {$import->getRowCount()}\nRange: {$import->getImportedRange()}")

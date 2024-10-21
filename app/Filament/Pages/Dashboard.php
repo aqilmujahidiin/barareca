@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Divisi;
+use BezhanSalleh\FilamentShield\Traits\HasPanelShield;
 use Filament\Forms\Form;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Section;
@@ -20,7 +21,7 @@ class Dashboard extends BaseDashboard
             ->schema([
                 Section::make()
                     ->schema([
-                        Select::make('divisis')  // Changed from 'divisis' to 'division'
+                        Select::make('divisis')
                             ->label('Divisi')
                             ->options(Divisi::pluck('name', 'id'))
                             ->placeholder('Semua Divisi'),
