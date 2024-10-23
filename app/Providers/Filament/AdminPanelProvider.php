@@ -20,6 +20,7 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Leandrocfe\FilamentApexCharts\FilamentApexChartsPlugin;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Croustibat\FilamentJobsMonitor\FilamentJobsMonitorPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -32,7 +33,7 @@ class AdminPanelProvider extends PanelProvider
             ->login(Login::class)
             ->sidebarFullyCollapsibleOnDesktop()
             ->maxContentWidth('Full')
-            ->databaseNotifications()
+            ->databaseNotifications(true)
             ->favicon(asset('images/favicon.png'))
             ->brandLogo(asset('images/logoku.png'))
             ->brandLogoHeight('2rem')
@@ -63,7 +64,8 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->plugins([
                 \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make(),
-                FilamentApexChartsPlugin::make()
+                FilamentApexChartsPlugin::make(),
+                FilamentJobsMonitorPlugin::make(),
             ]);
     }
 }

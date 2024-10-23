@@ -2,6 +2,11 @@
 
 return [
 
+    'database-notification' => [
+        'enabled' => true,
+        'polling_interval' => '30s',
+
+    ],
     /*
     |--------------------------------------------------------------------------
     | Broadcasting

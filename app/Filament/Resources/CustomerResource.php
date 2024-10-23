@@ -93,6 +93,7 @@ class CustomerResource extends Resource
                                     ->numeric()
                                     ->required(),
                                 TextInput::make('keterangan_promo'),
+                                TextInput::make('keterangan_issue'),
                                 TextInput::make('id_pelacakan'),
                             ])->columns(2),
                         // tab 4
@@ -198,7 +199,8 @@ class CustomerResource extends Resource
             ->columns([
                 TextColumn::make('No')
                     ->rowIndex(),
-                TextColumn::make('tanggal')->date('d F Y')
+                TextColumn::make('tanggal')
+                    ->date('d F Y')
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('no_invoice'),
@@ -246,6 +248,7 @@ class CustomerResource extends Resource
                 TextColumn::make('potongan_lain_3')
                     ->formatStateUsing(fn(string $state): string => 'Rp ' . number_format((float) $state, 0, ',', '.')),
                 TextColumn::make('keterangan_promo'),
+                TextColumn::make('keterangan_issue'),
             ])
 
             ->filters([

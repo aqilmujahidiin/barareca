@@ -29,6 +29,7 @@ return new class extends Migration {
             $table->string('kode_pos')->nullable();
             $table->string('no_invoice')->nullable();
             $table->string('keterangan_promo')->nullable();
+            $table->string('keterangan_issue')->nullable();
             $table->decimal('ongkos_kirim', 10, 2)->nullable()->default(0);
             $table->decimal('potongan_ongkos_kirim', 10, 2)->nullable()->default(0);
             $table->decimal('potongan_lain_1', 10, 2)->nullable()->default(0);

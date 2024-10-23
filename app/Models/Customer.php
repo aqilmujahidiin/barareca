@@ -29,6 +29,7 @@ class Customer extends Model
         'kode_pos',
         'no_invoice',
         'keterangan_promo',
+        'keterangan_issue',
         'ongkos_kirim',
         'potongan_ongkos_kirim',
         'potongan_lain_1',
@@ -61,7 +62,7 @@ class Customer extends Model
         return $this->belongsTo(related: Advertiser::class);
     }
 
-    public function operator(): BelongsTo // Perubahan disini
+    public function operator(): BelongsTo
     {
         return $this->belongsTo(related: Operator::class);
     }
