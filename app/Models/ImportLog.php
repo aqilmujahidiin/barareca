@@ -3,75 +3,129 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Builder;
 
 class ImportLog extends Model
 {
     protected $fillable = [
-        'import_id',
+        'user_id',
+        'file_name',
+        'file_path',
         'status',
-        'row_data',
-        'model_id',
-        'error_message'
+        'total_rows',
+        'success_rows',
+        'failed_rows',
+        'error_message',
+        'started_at',
+        'completed_at'
     ];
 
     protected $casts = [
-        'row_data' => 'array',
+        'error_message' => 'array',
+        'started_at' => 'datetime',
+        'completed_at' => 'datetime',
     ];
 
-    /**
-     * Scope untuk mendapatkan log berdasarkan import_id
-     */
-    public function scopeForImport($query, $importId)
+    const STATUS_PROCESSING = 'processing';
+    const STATUS_COMPLETED = 'completed';
+    const STATUS_FAILED = 'failed';
+    const STATUS_COMPLETED_WITH_ERRORS = 'completed_with_errors';
+
+    public function user(): BelongsTo
     {
-        return $query->where('import_id', $importId);
+        return $this->belongsTo(User::class);
     }
 
     /**
-     * Scope untuk mendapatkan data yang sukses
+     * Scope untuk import yang sedang diproses
      */
-    public function scopeSuccessful($query)
+    public function scopeProcessing(Builder $query): Builder
     {
-        return $query->where('status', 'success');
+        return $query->where('status', self::STATUS_PROCESSING);
     }
 
     /**
-     * Scope untuk mendapatkan data yang gagal
+     * Scope untuk import yang sudah selesai tanpa error
      */
-    public function scopeFailed($query)
+    public function scopeCompleted(Builder $query): Builder
     {
-        return $query->where('status', 'failed');
+        return $query->where('status', self::STATUS_COMPLETED);
     }
 
     /**
-     * Get related model (misalnya User) jika import sukses
+     * Scope untuk import yang selesai dengan error
      */
-    public function relatedModel()
+    public function scopeCompletedWithErrors(Builder $query): Builder
     {
-        if (!$this->model_id) {
+        return $query->where('status', self::STATUS_COMPLETED_WITH_ERRORS);
+    }
+
+    /**
+     * Scope untuk import yang gagal
+     */
+    public function scopeFailed(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_FAILED);
+    }
+
+    /**
+     * Scope untuk semua import yang berhasil (completed + completed_with_errors)
+     */
+    public function scopeAllCompleted(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            self::STATUS_COMPLETED,
+            self::STATUS_COMPLETED_WITH_ERRORS
+        ]);
+    }
+
+    /**
+     * Scope untuk import yang membutuhkan perhatian (failed + completed_with_errors)
+     */
+    public function scopeNeedsAttention(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            self::STATUS_FAILED,
+            self::STATUS_COMPLETED_WITH_ERRORS
+        ]);
+    }
+
+    /**
+     * Scope untuk import dalam periode tertentu
+     */
+    public function scopeInPeriod(Builder $query, string $period): Builder
+    {
+        return match ($period) {
+            'today' => $query->whereDate('created_at', today()),
+            'yesterday' => $query->whereDate('created_at', today()->subDay()),
+            'this_week' => $query->whereBetween('created_at', [
+                now()->startOfWeek(),
+                now()->endOfWeek()
+            ]),
+            'this_month' => $query->whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year),
+            default => $query
+        };
+    }
+
+    // Getter untuk success rate
+    public function getSuccessRateAttribute(): float
+    {
+        if ($this->total_rows === 0) {
+            return 0.0;
+        }
+
+        return round(($this->success_rows / $this->total_rows) * 100, 2);
+    }
+
+    // Getter untuk duration
+    public function getDurationAttribute(): ?string
+    {
+        if (!$this->completed_at) {
             return null;
         }
 
-        // Anda bisa menyesuaikan ini sesuai dengan model yang di-import
-        return $this->belongsTo(User::class, 'model_id');
-    }
-
-    /**
-     * Get summary untuk specific import
-     */
-    public static function getImportSummary($importId)
-    {
-        $total = self::forImport($importId)->count();
-        $success = self::forImport($importId)->successful()->count();
-        $failed = self::forImport($importId)->failed()->count();
-
-        return [
-            'total' => $total,
-            'success' => $success,
-            'failed' => $failed,
-            'errors' => self::forImport($importId)
-                ->failed()
-                ->pluck('error_message')
-                ->toArray()
-        ];
+        return $this->started_at->diffForHumans($this->completed_at);
     }
 }

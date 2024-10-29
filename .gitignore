@@ -19,3 +19,7 @@ yarn-error.log
 /.idea
 /.vscode
 /.zed
+/storage/app/temp/imports/*
+!/storage/app/temp/imports/.gitignore
+storage/app/public/temp/imports/data_customers/errors/*
+!storage/app/public/temp/imports/data_customers/errors/.gitignore

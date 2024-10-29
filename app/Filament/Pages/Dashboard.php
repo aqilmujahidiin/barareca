@@ -23,8 +23,15 @@ class Dashboard extends BaseDashboard
                     ->schema([
                         Select::make('divisis')
                             ->label('Divisi')
-                            ->options(Divisi::pluck('name', 'id'))
-                            ->placeholder('Semua Divisi'),
+                            ->options([
+                                'facebook' => 'Facebook',
+                                'tiktok' => 'Tiktok',
+                                'marketplace' => 'Marketplace',
+                                'crm' => 'CRM',
+                            ])
+                            ->native(false),
+
+                        // date picker
                         DatePicker::make('startDate')
                             ->label('Tanggal Mulai'),
                         DatePicker::make('endDate')

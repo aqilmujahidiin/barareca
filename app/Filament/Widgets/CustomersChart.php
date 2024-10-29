@@ -3,7 +3,7 @@
 namespace App\Filament\Widgets;
 
 use Carbon\Carbon;
-use App\Models\Customer;
+use App\Models\DataCustomer;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Illuminate\Support\Facades\DB;
@@ -28,9 +28,9 @@ class CustomersChart extends ChartWidget
             $startDate = now()->subMonth()->startOfDay();
         }
 
-        $data = Customer::query()
+        $data = DataCustomer::query()
             ->select(DB::raw('DATE(tanggal) as date'), DB::raw('SUM(total_pembayaran) as total'))
-            ->when($divisiId, fn($query) => $query->where('divisi_id', $divisiId))
+            ->when($divisiId, fn($query) => $query->where('divisi', $divisiId))
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->groupBy(DB::raw('DATE(tanggal)'))
             ->orderBy('date')

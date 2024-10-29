@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Customer;
+use App\Models\DataCustomer;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Illuminate\Support\Facades\DB;
@@ -19,15 +19,14 @@ class DivisiPieChart extends ChartWidget
     {
         $startDate = $this->filters['startDate'] ?? null;
         $endDate = $this->filters['endDate'] ?? null;
-        $selectedDivisiId = $this->filters['divisis'] ?? null;
+        $selectedDivisi = $this->filters['divisis'] ?? null;
 
-        $query = Customer::query()
-            ->join('divisis', 'customers.divisi_id', '=', 'divisis.id')
-            ->when($startDate, fn($q) => $q->where('customers.tanggal', '>=', $startDate))
-            ->when($endDate, fn($q) => $q->where('customers.tanggal', '<=', $endDate))
-            ->when($selectedDivisiId, fn($q) => $q->where('divisis.id', $selectedDivisiId))
-            ->groupBy('divisis.id', 'divisis.name')
-            ->select('divisis.name', DB::raw('SUM(customers.total_pembayaran) as total_omset'))
+        $query = DataCustomer::query()
+            ->when($startDate, fn($q) => $q->where('tanggal', '>=', $startDate))
+            ->when($endDate, fn($q) => $q->where('tanggal', '<=', $endDate))
+            ->when($selectedDivisi, fn($q) => $q->where('divisi', $selectedDivisi))
+            ->groupBy('divisi')
+            ->select('divisi', DB::raw('SUM(total_pembayaran) as total_omset'))
             ->orderByDesc('total_omset');
 
         $data = $query->get();
@@ -37,7 +36,7 @@ class DivisiPieChart extends ChartWidget
         $formattedData = $data->map(function ($item) use ($total) {
             $percentage = $total > 0 ? round(($item->total_omset / $total) * 100, 2) : 0;
             return [
-                'name' => $item->name,
+                'name' => $item->divisi,
                 'value' => $item->total_omset,
                 'percentage' => $percentage
             ];

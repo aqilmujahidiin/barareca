@@ -2,24 +2,24 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\DataCustomer;
+use Filament\Forms;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use App\Models\DataCustomer;
 use Filament\Widgets\TableWidget;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
-class GroupDivisi extends TableWidget
+class GroupProduk extends TableWidget
 {
     use InteractsWithPageFilters;
-    protected static ?int $sort = 1;
+    protected static ?int $sort = 3;
 
-    // Perbaikan method getTableRecordKey
     public function getTableRecordKey(Model $record): string
     {
-        return $record->divisi;
+        return $record->nama_produk;
     }
 
     public function table(Table $table): Table
@@ -28,10 +28,11 @@ class GroupDivisi extends TableWidget
             ->query(
                 DataCustomer::query()
                     ->select(
-                        'divisi',
+                        'nama_produk',
                         DB::raw('COUNT(*) as total_customer'),
                         DB::raw('SUM(quantity) as total_quantity'),
-                        DB::raw('SUM(total_pembayaran) as total_omset')
+                        DB::raw('SUM(total_pembayaran) as total_omset'),
+                        DB::raw('ROUND(SUM(total_pembayaran)/SUM(quantity), 0) as harga_rata_rata')
                     )
                     ->when(
                         $this->filters['divisis'] ?? null,
@@ -45,11 +46,11 @@ class GroupDivisi extends TableWidget
                         $this->filters['endDate'] ?? null,
                         fn(Builder $query, $date) => $query->where('tanggal', '<=', $date)
                     )
-                    ->groupBy('divisi')
+                    ->groupBy('nama_produk')
             )
             ->columns([
-                Tables\Columns\TextColumn::make('divisi')
-                    ->label('Divisi')
+                Tables\Columns\TextColumn::make('nama_produk')
+                    ->label('Nama Produk')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('total_customer')
                     ->label('Total Customer')
@@ -62,6 +63,9 @@ class GroupDivisi extends TableWidget
                     ->money('IDR')
                     ->sortable(),
             ])
-            ->defaultSort('total_omset', 'desc');
+            ->defaultSort('total_omset', 'desc')
+            ->striped();
+
     }
+
 }
