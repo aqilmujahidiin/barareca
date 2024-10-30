@@ -7,10 +7,13 @@ use App\Models\ImportLog;
 use Filament\Actions\Action;
 use App\Imports\DataCustomerImport;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Storage;
 use Filament\Notifications\Notification;
 use Filament\Forms\Components\FileUpload;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Forms\Components\Placeholder;
+use App\Exports\DataCustomerTemplateExport;
 use App\Filament\Resources\ImportLogResource;
 use App\Jobs\Import\ProcessDataCustomerImport;
 use App\Filament\Resources\DataCustomerResource;
@@ -32,99 +35,86 @@ class ListDataCustomers extends ListRecords
             Action::make('import')
                 ->label('Import Data')
                 ->icon('heroicon-o-arrow-up-tray')
+                ->color('success')
+                ->modalHeading('Import Data Customers')
+                ->modalDescription('Upload file Excel yang berisi data customers. Import akan diproses di background.')
                 ->form([
                     FileUpload::make('file')
                         ->label('File Excel')
+                        ->helperText('Format file: .xls, .xlsx (Maksimal 1MB). Status import dapat dilihat di log import.')
                         ->directory('temp/imports/data_customers')
                         ->preserveFilenames()
                         ->acceptedFileTypes([
                             'application/vnd.ms-excel',
                             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                         ])
-                        ->maxSize(5120)
+                        ->maxSize(1000)
                         ->required()
+                        ->downloadable()
+                        ->previewable()
                 ])
+                ->modalSubmitActionLabel('Mulai Import')
+                ->modalCancelActionLabel('Batal')
                 ->action(function (array $data): void {
                     try {
                         $filePath = 'temp/imports/data_customers/' . basename($data['file']);
-                        // $filePath = Storage::disk('public')->path($data['file']);
-        
-                        // Log start process
-                        Log::info('Starting import process', [
-                            'file' => $data['file'],
-                            'path' => $filePath,
-                            'file_exists' => Storage::disk('public')->exists($filePath),
-                            'user' => auth()->user()->name,
-                        ]);
 
                         // Create ImportLog
                         $importLog = ImportLog::create([
                             'user_id' => auth()->id(),
                             'file_name' => basename($data['file']),
-                            'file_path' => $filePath,  // simpan path file untuk digunakan di job
-                            'status' => ImportLog::STATUS_PROCESSING,
-                            'started_at' => now(),
+                            'file_path' => $filePath,
+                            'status' => ImportLog::STATUS_PENDING,
+                            'total_rows' => 0,
+                            'success_rows' => 0,
+                            'failed_rows' => 0
                         ]);
 
-                        // Dispatch job with new ImportLog
+                        // Dispatch job
                         ProcessDataCustomerImport::dispatch($importLog, $filePath);
 
-                        // Success notification
-                        Notification::make()
-                            ->title('Import Dijadwalkan')
-                            ->success()
-                            ->body('File sedang diproses dalam antrian')
-                            ->persistent()
-                            ->actions([
-                                \Filament\Notifications\Actions\Action::make('view_progress')
-                                    ->button()
-                                    ->label('Lihat Progress')
-                                    ->url(fn() => ImportLogResource::getUrl('view', ['record' => $importLog]))
-                            ])
-                            ->send();
-
                     } catch (\Exception $e) {
-                        // Log error
-                        Log::error('Failed to start import', [
-                            'file' => $data['file'] ?? 'unknown',
-                            'user' => auth()->user()->name ?? 'unknown',
-                            'error' => $e->getMessage(),
-                            'trace' => $e->getTraceAsString(),
-                        ]);
-
                         // Update ImportLog if exists
                         if (isset($importLog)) {
                             $importLog->update([
                                 'status' => ImportLog::STATUS_FAILED,
-                                'error_message' => $e->getMessage(),
+                                'error_message' => [$e->getMessage()],
                                 'completed_at' => now()
                             ]);
                         }
 
                         // Cleanup file
-                        try {
-                            Storage::disk('public')->delete($data['file']);
-                            Log::info('Cleaned up failed import file', [
-                                'file' => $data['file']
-                            ]);
-                        } catch (\Exception $deleteError) {
-                            Log::warning('Failed to cleanup import file');
-                        }
-
-                        // Error notification
-                        Notification::make()
-                            ->title('Import Gagal Dimulai')
-                            ->danger()
-                            ->persistent()
-                            ->body(implode("\n", [
-                                "File: " . basename($data['file']),
-                                "Error: " . $e->getMessage(),
-                                "Time: " . now()->format('Y-m-d H:i:s')
-                            ]))
-                            ->sendToDatabase(auth()->user());
-                        // ->send();
+                        Storage::disk('public')->delete($data['file']);
                     }
                 }),
+
+            Action::make('downloadTemplate')
+                ->label('Download Template')
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('gray')
+                ->action(function () {
+                    // Pastikan direktori temp ada
+                    Storage::makeDirectory('temp');
+
+                    return response()->streamDownload(function () {
+                        $export = new DataCustomerTemplateExport();
+                        Excel::store($export, 'temp/template.xlsx', 'local');
+
+                        // Gunakan storage_path dengan Storage facade
+                        $filePath = Storage::path('temp/template.xlsx');
+                        readfile($filePath);
+
+                        // Hapus file setelah didownload
+                        Storage::delete('temp/template.xlsx');
+                    }, 'data_customer_import_template.xlsx');
+                })
+                ->successNotification(
+                    Notification::make()
+                        ->success()
+                        ->title('Template Downloaded')
+                        ->body('Template berhasil didownload.')
+                ),
+
             Actions\CreateAction::make(),
         ];
     }

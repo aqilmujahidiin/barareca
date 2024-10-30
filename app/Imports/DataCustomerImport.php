@@ -1,31 +1,35 @@
 <?php
+// app/Imports/DataCustomerImport.php
 
 namespace App\Imports;
 
 use Exception;
+use Throwable;
 use Carbon\Carbon;
-use App\Models\DataCustomer;
+use App\Models\User;
 use App\Models\ImportLog;
+use App\Models\DataCustomer;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToModel;
+use Maatwebsite\Excel\Events\AfterImport;
+use Maatwebsite\Excel\Validators\Failure;
 use Maatwebsite\Excel\Concerns\Importable;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\BeforeImport;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
+use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\SkipsOnError;
+use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Events\BeforeImport;
-use Maatwebsite\Excel\Events\AfterImport;
-use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
-use Throwable;
 
 class DataCustomerImport implements
     ToModel,
     WithHeadingRow,
+    WithMapping,
     SkipsEmptyRows,
     WithChunkReading,
     ShouldQueue,
@@ -37,67 +41,55 @@ class DataCustomerImport implements
     use Importable;
 
     private $importLogId;
-    private $rows = 0;
+    private $operatorCache = [];
     private $successCount = 0;
     private $failureCount = 0;
+    private $totalRows = 0;
     private $errors = [];
-    private $operatorId;
     private $importLog;
+    private $rowNumber = 0;
 
     public function __construct($importLogId)
     {
         $this->importLogId = $importLogId;
         $this->importLog = ImportLog::findOrFail($importLogId);
-        $this->operatorId = $this->importLog->user_id;
 
-        // Inisialisasi status awal
-        $this->importLog->update([
-            'status' => ImportLog::STATUS_PROCESSING,
-            'started_at' => now(),
-            'total_rows' => 0,
-            'success_rows' => 0,
-            'failed_rows' => 0
-        ]);
-
-        Log::info('DataCustomerImport initialized', [
-            'import_log_id' => $importLogId,
-            'operator_id' => $this->operatorId
+        Log::info('Import initialized', [
+            'class' => get_class($this),
+            'import_log_id' => $this->importLogId,
+            'status' => $this->importLog->status,
+            'file_name' => $this->importLog->file_name
         ]);
     }
 
     public function model(array $row)
     {
         try {
-            $this->rows++;
-
-            // Debug log
-            Log::info('Processing row', [
+            Log::debug('Processing row', [
                 'import_log_id' => $this->importLogId,
-                'row_number' => $this->rows,
-                'data' => $row
+                'row_number' => $this->rowNumber
             ]);
 
-            $date = ExcelDate::excelToDateTimeObject($row['tanggal'])->format('Y-m-d');
+            $operatorId = $this->getOperatorId($row['nama_operator']);
 
             $model = new DataCustomer([
-                'tanggal' => $date,
-                'operator_id' => $this->operatorId,
-                'nama_pelanggan' => $row['nama_pelanggan'] ?? null,
-                'no_telepon' => $row['no_telepon'] ?? null,
-                'nama_produk' => $row['nama_produk'] ?? null,
+                'tanggal' => $this->transformDate($row['tanggal']),
+                'nama_pelanggan' => $row['nama_pelanggan'],
+                'no_telepon' => $row['no_telepon'],
+                'nama_produk' => $row['nama_produk'],
                 'quantity' => $row['quantity'] ?? null,
-                'alamat_pengirim' => $row['alamat_pengirim'] ?? null,
-                'id_pelacakan' => $row['id_pelacakan'] ?? null,
-                'status_granular' => $row['status_granular'] ?? 'pending',
-                'nama_pengirim' => $row['nama_pengirim'] ?? null,
-                'kontak_pengirim' => $row['kontak_pengirim'] ?? null,
-                'kode_pos_pengirim' => $row['kode_pos_pengirim'] ?? null,
-                'metode_pembayaran' => $row['metode_pembayaran'] ?? 'transfer',
-                'total_pembayaran' => $row['total_pembayaran'] ?? 0,
-                'alamat_penerima' => $row['alamat_penerima'] ?? null,
+                'alamat_pengirim' => $row['alamat_pengirim'],
+                'id_pelacakan' => $row['id_pelacakan'],
+                'status_granular' => strtolower($row['status_granular']),
+                'nama_pengirim' => $row['nama_pengirim'],
+                'kontak_pengirim' => $row['kontak_pengirim'],
+                'kode_pos_pengirim' => $row['kode_pos_pengirim'],
+                'metode_pembayaran' => strtolower($row['metode_pembayaran']),
+                'total_pembayaran' => $row['total_pembayaran'],
+                'alamat_penerima' => $row['alamat_penerima'],
                 'alamat_penerima_2' => $row['alamat_penerima_2'] ?? null,
-                'kode_pos' => $row['kode_pos'] ?? null,
-                'no_invoice' => $row['no_invoice'] ?? null,
+                'kode_pos' => $row['kode_pos'],
+                'no_invoice' => $row['no_invoice'],
                 'keterangan_promo' => $row['keterangan_promo'] ?? null,
                 'keterangan_issue' => $row['keterangan_issue'] ?? null,
                 'ongkos_kirim' => $row['ongkos_kirim'] ?? 0,
@@ -105,44 +97,124 @@ class DataCustomerImport implements
                 'potongan_lain_1' => $row['potongan_lain_1'] ?? 0,
                 'potongan_lain_2' => $row['potongan_lain_2'] ?? 0,
                 'potongan_lain_3' => $row['potongan_lain_3'] ?? 0,
-                'customer_service' => $row['customer_service'] ?? '',
-                'advertiser' => $row['advertiser'] ?? '',
-                'status_customer' => $row['status_customer'] ?? null,
-                'company' => $row['company'] ?? '',
-                'divisi' => $row['divisi'] ?? ''
+                'customer_service' => $row['customer_service'],
+                'advertiser' => $row['advertiser'],
+                'operator_id' => $operatorId,
+                'status_customer' => $row['status_customer'],
+                'company' => $row['company'],
+                'divisi' => $row['divisi'],
             ]);
 
-            $model->save();
-
             $this->successCount++;
+            $this->updateImportProgress("Row {$this->rowNumber} imported successfully");
 
-            // Update progress setelah setiap baris berhasil
-            $this->updateImportProgress('Row imported successfully');
+            Log::debug('Row processed successfully', [
+                'import_log_id' => $this->importLogId,
+                'row_number' => $this->rowNumber,
+                'success_count' => $this->successCount
+            ]);
 
             return $model;
 
         } catch (Exception $e) {
             $this->failureCount++;
-            $this->errors[] = "Row {$this->rows}: " . $e->getMessage();
+            $this->errors[] = "Row {$this->rowNumber}: " . $e->getMessage();
 
-            Log::error('Error importing row', [
+            Log::error('Row processing failed', [
                 'import_log_id' => $this->importLogId,
-                'row_number' => $this->rows,
+                'row_number' => $this->rowNumber,
                 'error' => $e->getMessage()
             ]);
 
-            // Update progress saat error
-            $this->updateImportProgress('Error importing row');
+            $this->updateImportProgress("Error processing row {$this->rowNumber}");
+            throw $e;
+        }
+    }
+
+    public function map($row): array
+    {
+        $this->rowNumber++;
+        $this->totalRows = $this->rowNumber; // Update total rows setiap kali map dipanggil
+
+        Log::debug('Mapping row', [
+            'import_log_id' => $this->importLogId,
+            'row_number' => $this->rowNumber,
+            'total_rows' => $this->totalRows,
+            'success_count' => $this->successCount,
+            'failure_count' => $this->failureCount
+        ]);
+
+        return $row;
+    }
+
+    private function getOperatorId(string $operatorName): ?int
+    {
+        try {
+            Log::debug('Getting operator ID', [
+                'import_log_id' => $this->importLogId,
+                'operator_name' => $operatorName,
+                'row_number' => $this->rowNumber
+            ]);
+
+            if (empty($operatorName)) {
+                throw new Exception("Nama operator tidak boleh kosong");
+            }
+
+            if (!isset($this->operatorCache[$operatorName])) {
+                Log::info('Operator not in cache, querying database', [
+                    'import_log_id' => $this->importLogId,
+                    'operator_name' => $operatorName
+                ]);
+
+                $operator = User::query()
+                    ->role('operator')
+                    ->where(function ($query) use ($operatorName) {
+                        $query->where('name', $operatorName)
+                            ->orWhere('name', 'LIKE', "%{$operatorName}%");
+                    })
+                    ->first();
+
+                if (!$operator) {
+                    Log::warning('Operator not found', [
+                        'import_log_id' => $this->importLogId,
+                        'operator_name' => $operatorName,
+                        'row_number' => $this->rowNumber
+                    ]);
+
+                    throw new Exception(
+                        "Operator dengan nama '{$operatorName}' tidak ditemukan atau tidak memiliki role operator. " .
+                        "Pastikan nama operator sudah benar dan memiliki role operator."
+                    );
+                }
+
+                $this->operatorCache[$operatorName] = $operator->id;
+
+                Log::info('Operator found and cached', [
+                    'import_log_id' => $this->importLogId,
+                    'operator_name' => $operatorName,
+                    'operator_id' => $operator->id
+                ]);
+            }
+
+            return $this->operatorCache[$operatorName];
+
+        } catch (Exception $e) {
+            Log::error('Error getting operator ID', [
+                'import_log_id' => $this->importLogId,
+                'operator_name' => $operatorName,
+                'row_number' => $this->rowNumber,
+                'error' => $e->getMessage()
+            ]);
 
             throw $e;
         }
     }
 
-    private function updateImportProgress($message = '')
+    private function updateImportProgress(string $message = ''): void
     {
         try {
-            $result = ImportLog::where('id', $this->importLogId)->update([
-                'total_rows' => $this->rows,
+            $this->importLog->update([
+                'total_rows' => $this->totalRows,
                 'success_rows' => $this->successCount,
                 'failed_rows' => $this->failureCount,
                 'error_message' => !empty($this->errors) ? $this->errors : null
@@ -150,16 +222,19 @@ class DataCustomerImport implements
 
             Log::info('Import progress updated', [
                 'import_log_id' => $this->importLogId,
-                'total_rows' => $this->rows,
+                'total_rows' => $this->totalRows,
                 'success_rows' => $this->successCount,
                 'failed_rows' => $this->failureCount,
-                'update_result' => $result,
+                'current_row' => $this->rowNumber,
                 'message' => $message
             ]);
         } catch (Exception $e) {
             Log::error('Failed to update import progress', [
                 'import_log_id' => $this->importLogId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'total_rows' => $this->totalRows,
+                'success_rows' => $this->successCount,
+                'failed_rows' => $this->failureCount
             ]);
         }
     }
@@ -168,35 +243,56 @@ class DataCustomerImport implements
     {
         return [
             BeforeImport::class => function (BeforeImport $event) {
-                Log::info('Starting import process', [
-                    'import_log_id' => $this->importLogId
-                ]);
+                // Reset counters
+                $this->rowNumber = 0;
+                $this->totalRows = 0;
+                $this->successCount = 0;
+                $this->failureCount = 0;
+                $this->errors = [];
 
                 $this->importLog->update([
                     'status' => ImportLog::STATUS_PROCESSING,
-                    'started_at' => now()
+                    'started_at' => now(),
+                    'total_rows' => 0,
+                    'success_rows' => 0,
+                    'failed_rows' => 0,
+                    'error_message' => null
+                ]);
+
+                Log::info('Starting import', [
+                    'import_log_id' => $this->importLogId
                 ]);
             },
 
             AfterImport::class => function (AfterImport $event) {
-                $status = $this->failureCount > 0 ? ImportLog::STATUS_COMPLETED_WITH_ERRORS : ImportLog::STATUS_COMPLETED;
+                $status = $this->failureCount > 0
+                    ? ImportLog::STATUS_COMPLETED_WITH_ERRORS
+                    : ImportLog::STATUS_COMPLETED;
 
-                $updated = $this->importLog->update([
+                // Log before update
+                Log::info('Final counts before update', [
+                    'import_log_id' => $this->importLogId,
+                    'total_rows' => $this->totalRows,
+                    'success_rows' => $this->successCount,
+                    'failed_rows' => $this->failureCount
+                ]);
+
+                $this->importLog->update([
                     'status' => $status,
-                    'total_rows' => $this->rows,
+                    'total_rows' => $this->totalRows,
                     'success_rows' => $this->successCount,
                     'failed_rows' => $this->failureCount,
                     'error_message' => !empty($this->errors) ? $this->errors : null,
                     'completed_at' => now()
                 ]);
 
+                // Log after update
                 Log::info('Import completed', [
                     'import_log_id' => $this->importLogId,
-                    'final_status' => $status,
-                    'total_rows' => $this->rows,
-                    'success_rows' => $this->successCount,
-                    'failed_rows' => $this->failureCount,
-                    'update_success' => $updated
+                    'status' => $status,
+                    'final_total_rows' => $this->totalRows,
+                    'final_success_rows' => $this->successCount,
+                    'final_failed_rows' => $this->failureCount
                 ]);
             }
         ];
@@ -205,17 +301,63 @@ class DataCustomerImport implements
     public function onError(Throwable $e)
     {
         $this->failureCount++;
-        $this->errors[] = "Row {$this->rows}: " . $e->getMessage();
-        $this->updateImportProgress('Error occurred');
+        $this->errors[] = "Row {$this->rowNumber}: " . $e->getMessage();
+
+        Log::error('Import row error', [
+            'import_log_id' => $this->importLogId,
+            'row' => $this->rowNumber,
+            'error' => $e->getMessage()
+        ]);
     }
 
-    public function onFailure(...$failures)
+    public function onFailure(Failure ...$failures)
     {
         foreach ($failures as $failure) {
             $this->failureCount++;
-            $this->errors[] = "Row {$this->rows}: " . implode(', ', $failure->errors());
+            $this->errors[] = "Row {$failure->row()}: " . implode(', ', $failure->errors());
+
+            Log::warning('Import row failure', [
+                'import_log_id' => $this->importLogId,
+                'row' => $failure->row(),
+                'errors' => $failure->errors()
+            ]);
         }
-        $this->updateImportProgress('Failure occurred');
+    }
+
+    private function transformDate($value)
+    {
+        try {
+            if (is_numeric($value)) {
+                return ExcelDate::excelToDateTimeObject($value)->format('Y-m-d');
+            }
+            return Carbon::createFromFormat('d/m/Y', $value)->format('Y-m-d');
+        } catch (Exception $e) {
+            throw new Exception("Format tanggal tidak valid. Gunakan format DD/MM/YYYY");
+        }
+    }
+
+    public function getTotalRows(): int
+    {
+        return $this->totalRows;
+    }
+    public function getSuccessCount(): int
+    {
+        return $this->successCount;
+    }
+
+    public function getFailureCount(): int
+    {
+        return $this->failureCount;
+    }
+
+    public function getErrors(): array
+    {
+        return $this->errors;
+    }
+
+    public function getRowCount(): int
+    {
+        return $this->rowNumber;
     }
 
     public function batchSize(): int
