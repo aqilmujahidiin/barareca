@@ -3,8 +3,9 @@
 namespace App\Observers;
 
 use App\Models\ImportLog;
-use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
+use Filament\Notifications\Notification;
+use App\Filament\Resources\ImportLogResource;
 
 class ImportLogObserver
 {
